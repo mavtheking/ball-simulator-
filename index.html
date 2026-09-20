@@ -1,0 +1,1223 @@
+```html
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Ball Simulator</title>
+
+<style>
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    background: #101010;
+    color: white;
+    font-family: Arial, sans-serif;
+    overflow: hidden;
+}
+
+#topbar {
+    height: 60px;
+    background: #1c1c1c;
+    display: flex;
+    align-items: center;
+    padding-left: 20px;
+    border-bottom: 2px solid #333;
+}
+
+#topbar h1 {
+    margin: 0;
+    font-size: 22px;
+}
+
+#main {
+    display: flex;
+    height: calc(100vh - 60px);
+}
+
+#settings {
+    width: 290px;
+    min-width: 290px;
+    background: #202020;
+    padding: 18px;
+    overflow-y: auto;
+}
+
+#settings h2 {
+    font-size: 18px;
+    margin: 12px 0;
+}
+
+.setting {
+    margin-bottom: 18px;
+}
+
+label {
+    display: block;
+    margin-bottom: 7px;
+}
+
+input[type="range"] {
+    width: 100%;
+}
+
+input[type="color"] {
+    width: 100%;
+    height: 40px;
+    border: none;
+}
+
+select {
+    width: 100%;
+    padding: 9px;
+    background: #333;
+    color: white;
+    border: 1px solid #555;
+    border-radius: 5px;
+}
+
+button {
+    width: 100%;
+    padding: 11px;
+    margin-top: 8px;
+    border: none;
+    border-radius: 6px;
+    background: #3478f6;
+    color: white;
+    font-size: 15px;
+    cursor: pointer;
+}
+
+button:hover {
+    background: #2563d9;
+}
+
+#reset {
+    background: #d62828;
+}
+
+#reset:hover {
+    background: #b51f1f;
+}
+
+.value {
+    float: right;
+    color: #66aaff;
+}
+
+#gameArea {
+    flex: 1;
+    position: relative;
+    background: #080808;
+}
+
+canvas {
+    width: 100%;
+    height: 100%;
+    display: block;
+}
+
+#help {
+    position: absolute;
+    top: 15px;
+    left: 15px;
+    background: rgba(0,0,0,.55);
+    padding: 10px;
+    border-radius: 6px;
+}
+
+#dupStatus {
+    color: #55ff77;
+    font-weight: bold;
+    margin-top: 6px;
+}
+</style>
+</head>
+
+<body>
+
+<div id="topbar">
+    <h1>⚪ Zero-Gravity Ball Simulator</h1>
+</div>
+
+<div id="main">
+
+<div id="settings">
+
+<h2>Ball Settings</h2>
+
+<div class="setting">
+<label>
+Ball Size
+<span class="value" id="sizeValue">18</span>
+</label>
+<input id="size" type="range" min="5" max="50" value="18">
+</div>
+
+<div class="setting">
+<label>
+Ball Speed
+<span class="value" id="speedValue">4</span>
+</label>
+<input id="speed" type="range" min="1" max="15" step="0.5" value="4">
+</div>
+
+<div class="setting">
+<label>
+Bounce
+<span class="value" id="bounceValue">1</span>
+</label>
+<input id="bounce" type="range" min="0.5" max="1" step="0.05" value="1">
+</div>
+
+<div class="setting">
+<label>Ball Color</label>
+<input id="color" type="color" value="#00aaff">
+</div>
+
+
+<h2>🏟 Arena</h2>
+
+<div class="setting">
+<label>Arena Shape</label>
+
+<select id="arenaShape">
+    <option value="circle">Circle</option>
+    <option value="square">Square</option>
+    <option value="rectangle">Rectangle</option>
+</select>
+</div>
+
+<div class="setting">
+<label>
+Arena Size
+<span class="value" id="arenaSizeValue">70%</span>
+</label>
+
+<input id="arenaSize" type="range" min="30" max="95" value="70">
+</div>
+
+
+<h2>💥 Duplication</h2>
+
+<div class="setting">
+
+<label>
+<input id="duplicate" type="checkbox" checked>
+ Duplicate on edge hit
+</label>
+
+<div id="dupStatus">
+DUPLICATION: ON
+</div>
+
+</div>
+
+<div class="setting">
+
+<label>
+Maximum Balls
+<span class="value" id="maxBallsValue">50</span>
+</label>
+
+<input id="maxBalls" type="range" min="1" max="300" value="50">
+
+</div>
+
+
+<h2>🔊 Sound</h2>
+
+<div class="setting">
+
+<label>
+<input id="sound" type="checkbox">
+ Edge Hit Sound
+</label>
+
+</div>
+
+
+<button id="addBall">
+➕ Add Ball
+</button>
+
+<button id="reset">
+🔄 Reset
+</button>
+
+
+<h2>Info</h2>
+
+<p>
+Balls:
+<span id="ballCount">0</span>
+</p>
+
+<p>Gravity: OFF</p>
+
+<p>
+Each edge hit creates exactly ONE new ball.
+</p>
+
+</div>
+
+
+<div id="gameArea">
+
+<canvas id="canvas"></canvas>
+
+<div id="help">
+Zero gravity • Balls bounce forever
+</div>
+
+</div>
+
+</div>
+
+
+<script>
+
+const canvas = document.getElementById("canvas");
+const ctx = canvas.getContext("2d");
+
+let balls = [];
+
+
+// ================================
+// SETTINGS
+// ================================
+
+const sizeInput =
+    document.getElementById("size");
+
+const speedInput =
+    document.getElementById("speed");
+
+const bounceInput =
+    document.getElementById("bounce");
+
+const colorInput =
+    document.getElementById("color");
+
+const duplicateInput =
+    document.getElementById("duplicate");
+
+const maxBallsInput =
+    document.getElementById("maxBalls");
+
+const soundInput =
+    document.getElementById("sound");
+
+const shapeInput =
+    document.getElementById("arenaShape");
+
+const arenaSizeInput =
+    document.getElementById("arenaSize");
+
+const ballCount =
+    document.getElementById("ballCount");
+
+const dupStatus =
+    document.getElementById("dupStatus");
+
+
+// ================================
+// ARENA
+// ================================
+
+let arenaX = 0;
+let arenaY = 0;
+
+let arenaWidth = 0;
+let arenaHeight = 0;
+
+let arenaRadius = 0;
+
+
+// ================================
+// CANVAS SIZE
+// ================================
+
+function resizeCanvas() {
+
+    const rect =
+        canvas.getBoundingClientRect();
+
+    canvas.width =
+        Math.max(1, Math.floor(rect.width));
+
+    canvas.height =
+        Math.max(1, Math.floor(rect.height));
+
+    updateArena();
+}
+
+window.addEventListener(
+    "resize",
+    resizeCanvas
+);
+
+
+// ================================
+// UPDATE ARENA
+// ================================
+
+function updateArena() {
+
+    arenaX =
+        canvas.width / 2;
+
+    arenaY =
+        canvas.height / 2;
+
+    const percent =
+        Number(arenaSizeInput.value) / 100;
+
+
+    if (shapeInput.value === "circle") {
+
+        arenaRadius =
+            Math.min(
+                canvas.width,
+                canvas.height
+            ) * 0.45 * percent;
+
+        arenaWidth =
+            arenaRadius * 2;
+
+        arenaHeight =
+            arenaRadius * 2;
+    }
+
+
+    else if (shapeInput.value === "square") {
+
+        const size =
+            Math.min(
+                canvas.width,
+                canvas.height
+            ) * 0.9 * percent;
+
+        arenaWidth = size;
+        arenaHeight = size;
+
+        arenaRadius = size / 2;
+    }
+
+
+    else {
+
+        arenaWidth =
+            canvas.width * 0.85 * percent;
+
+        arenaHeight =
+            canvas.height * 0.75 * percent;
+    }
+}
+
+
+// ================================
+// CREATE BALL
+// ================================
+
+function createBall(
+    x = arenaX,
+    y = arenaY
+) {
+
+    const radius =
+        Number(sizeInput.value);
+
+    const speed =
+        Number(speedInput.value);
+
+    let angle =
+        Math.random() *
+        Math.PI * 2;
+
+
+    // Make sure the ball always moves
+
+    if (speed <= 0) {
+        angle = 0;
+    }
+
+
+    return {
+
+        x: x,
+
+        y: y,
+
+        radius: radius,
+
+        vx:
+            Math.cos(angle) * speed,
+
+        vy:
+            Math.sin(angle) * speed,
+
+        bounce:
+            Number(bounceInput.value),
+
+        color:
+            colorInput.value,
+
+        // This prevents the same
+        // collision from duplicating again.
+
+        canDuplicate: true
+    };
+}
+
+
+// ================================
+// ADD BALL
+// ================================
+
+function addBall() {
+
+    const maxBalls =
+        Number(maxBallsInput.value);
+
+
+    if (balls.length >= maxBalls) {
+        return;
+    }
+
+
+    balls.push(
+        createBall()
+    );
+
+    updateCount();
+}
+
+
+// ================================
+// RESET
+// ================================
+
+function resetBalls() {
+
+    balls = [];
+
+    updateCount();
+}
+
+
+// ================================
+// DUPLICATE ONE BALL
+// ================================
+
+function duplicateBall(ball) {
+
+    // Duplication disabled
+
+    if (!duplicateInput.checked) {
+        return;
+    }
+
+
+    // Maximum reached
+
+    if (
+        balls.length >=
+        Number(maxBallsInput.value)
+    ) {
+        return;
+    }
+
+
+    /*
+        IMPORTANT:
+
+        Only THIS ball duplicates.
+
+        Example:
+
+        1 ball hits
+        1 -> 2
+
+        Then one of those hits
+        2 -> 3
+
+        Then another hits
+        3 -> 4
+    */
+
+
+    const newBall =
+        createBall(
+            ball.x,
+            ball.y
+        );
+
+
+    // Give the new ball
+    // a different direction.
+
+    newBall.vx =
+        -ball.vx;
+
+    newBall.vy =
+        -ball.vy;
+
+
+    // Prevent the new ball from
+    // immediately duplicating at
+    // the same wall.
+
+    newBall.canDuplicate = false;
+
+
+    balls.push(newBall);
+
+    updateCount();
+}
+
+
+// ================================
+// EDGE HIT
+// ================================
+
+function edgeHit(ball) {
+
+    playHitSound();
+
+
+    // Only THIS ball can duplicate.
+
+    if (ball.canDuplicate) {
+
+        // Lock this ball first.
+
+        ball.canDuplicate = false;
+
+
+        duplicateBall(ball);
+    }
+}
+
+
+// ================================
+// SOUND
+// ================================
+
+let audioContext = null;
+
+function playHitSound() {
+
+    if (!soundInput.checked) {
+        return;
+    }
+
+
+    if (!audioContext) {
+
+        audioContext =
+            new (
+                window.AudioContext ||
+                window.webkitAudioContext
+            )();
+    }
+
+
+    if (
+        audioContext.state ===
+        "suspended"
+    ) {
+
+        audioContext.resume();
+    }
+
+
+    const oscillator =
+        audioContext.createOscillator();
+
+    const gain =
+        audioContext.createGain();
+
+
+    oscillator.type =
+        "sine";
+
+
+    oscillator.frequency.value =
+        250 +
+        Math.random() * 200;
+
+
+    gain.gain.setValueAtTime(
+        0.35,
+        audioContext.currentTime
+    );
+
+
+    gain.gain.exponentialRampToValueAtTime(
+        0.001,
+        audioContext.currentTime + 0.12
+    );
+
+
+    oscillator.connect(gain);
+
+    gain.connect(
+        audioContext.destination
+    );
+
+
+    oscillator.start();
+
+    oscillator.stop(
+        audioContext.currentTime + 0.12
+    );
+}
+
+
+// ================================
+// CIRCLE PHYSICS
+// ================================
+
+function circlePhysics(ball) {
+
+    const dx =
+        ball.x - arenaX;
+
+    const dy =
+        ball.y - arenaY;
+
+    const distance =
+        Math.sqrt(
+            dx * dx +
+            dy * dy
+        );
+
+
+    if (
+        distance +
+        ball.radius >=
+        arenaRadius
+    ) {
+
+        if (distance === 0) {
+            return;
+        }
+
+
+        const nx =
+            dx / distance;
+
+        const ny =
+            dy / distance;
+
+
+        // Keep inside arena
+
+        ball.x =
+            arenaX +
+            nx *
+            (arenaRadius -
+            ball.radius);
+
+        ball.y =
+            arenaY +
+            ny *
+            (arenaRadius -
+            ball.radius);
+
+
+        // Reflect velocity
+
+        const dot =
+            ball.vx * nx +
+            ball.vy * ny;
+
+
+        ball.vx =
+            ball.vx -
+            2 * dot * nx;
+
+        ball.vy =
+            ball.vy -
+            2 * dot * ny;
+
+
+        ball.vx *=
+            ball.bounce;
+
+        ball.vy *=
+            ball.bounce;
+
+
+        // EDGE HIT
+
+        edgeHit(ball);
+    }
+
+
+    else {
+
+        /*
+            Once the ball has moved away
+            from the wall, unlock it.
+
+            This means the ball can duplicate
+            again the NEXT time it hits.
+        */
+
+        ball.canDuplicate = true;
+    }
+}
+
+
+// ================================
+// BOX PHYSICS
+// ================================
+
+function boxPhysics(ball) {
+
+    const left =
+        arenaX -
+        arenaWidth / 2;
+
+    const right =
+        arenaX +
+        arenaWidth / 2;
+
+    const top =
+        arenaY -
+        arenaHeight / 2;
+
+    const bottom =
+        arenaY +
+        arenaHeight / 2;
+
+
+    let hit = false;
+
+
+    // LEFT
+
+    if (
+        ball.x -
+        ball.radius <
+        left
+    ) {
+
+        ball.x =
+            left +
+            ball.radius;
+
+        ball.vx =
+            Math.abs(ball.vx) *
+            ball.bounce;
+
+        hit = true;
+    }
+
+
+    // RIGHT
+
+    if (
+        ball.x +
+        ball.radius >
+        right
+    ) {
+
+        ball.x =
+            right -
+            ball.radius;
+
+        ball.vx =
+            -Math.abs(ball.vx) *
+            ball.bounce;
+
+        hit = true;
+    }
+
+
+    // TOP
+
+    if (
+        ball.y -
+        ball.radius <
+        top
+    ) {
+
+        ball.y =
+            top +
+            ball.radius;
+
+        ball.vy =
+            Math.abs(ball.vy) *
+            ball.bounce;
+
+        hit = true;
+    }
+
+
+    // BOTTOM
+
+    if (
+        ball.y +
+        ball.radius >
+        bottom
+    ) {
+
+        ball.y =
+            bottom -
+            ball.radius;
+
+        ball.vy =
+            -Math.abs(ball.vy) *
+            ball.bounce;
+
+        hit = true;
+    }
+
+
+    if (hit) {
+
+        edgeHit(ball);
+
+    } else {
+
+        // Ball has left the wall.
+        // It can duplicate again
+        // on its next edge hit.
+
+        ball.canDuplicate = true;
+    }
+}
+
+
+// ================================
+// UPDATE
+// ================================
+
+function update() {
+
+    /*
+        Use a snapshot.
+
+        This is important because new balls
+        can be added while we are updating.
+
+        The new ball will start updating
+        on the next frame instead of causing
+        a chain reaction in the same frame.
+    */
+
+    const currentBalls =
+        [...balls];
+
+
+    for (
+        const ball of currentBalls
+    ) {
+
+        ball.x += ball.vx;
+
+        ball.y += ball.vy;
+
+
+        if (
+            shapeInput.value ===
+            "circle"
+        ) {
+
+            circlePhysics(ball);
+
+        }
+
+        else {
+
+            boxPhysics(ball);
+        }
+    }
+}
+
+
+// ================================
+// DRAW ARENA
+// ================================
+
+function drawArena() {
+
+    ctx.beginPath();
+
+
+    if (
+        shapeInput.value ===
+        "circle"
+    ) {
+
+        ctx.arc(
+            arenaX,
+            arenaY,
+            arenaRadius,
+            0,
+            Math.PI * 2
+        );
+
+    }
+
+    else {
+
+        ctx.rect(
+            arenaX -
+            arenaWidth / 2,
+
+            arenaY -
+            arenaHeight / 2,
+
+            arenaWidth,
+
+            arenaHeight
+        );
+    }
+
+
+    ctx.fillStyle =
+        "#171717";
+
+    ctx.fill();
+
+
+    ctx.strokeStyle =
+        "#666";
+
+    ctx.lineWidth =
+        6;
+
+    ctx.stroke();
+}
+
+
+// ================================
+// DRAW BALLS
+// ================================
+
+function draw() {
+
+    ctx.clearRect(
+        0,
+        0,
+        canvas.width,
+        canvas.height
+    );
+
+
+    drawArena();
+
+
+    for (
+        const ball of balls
+    ) {
+
+        ctx.beginPath();
+
+
+        ctx.arc(
+            ball.x,
+            ball.y,
+            ball.radius,
+            0,
+            Math.PI * 2
+        );
+
+
+        ctx.fillStyle =
+            ball.color;
+
+        ctx.fill();
+
+
+        ctx.strokeStyle =
+            "white";
+
+        ctx.lineWidth =
+            2;
+
+        ctx.stroke();
+    }
+}
+
+
+// ================================
+// COUNT
+// ================================
+
+function updateCount() {
+
+    ballCount.textContent =
+        balls.length;
+}
+
+
+// ================================
+// UI
+// ================================
+
+sizeInput.addEventListener(
+    "input",
+    () => {
+
+        document.getElementById(
+            "sizeValue"
+        ).textContent =
+            sizeInput.value;
+    }
+);
+
+
+speedInput.addEventListener(
+    "input",
+    () => {
+
+        document.getElementById(
+            "speedValue"
+        ).textContent =
+            speedInput.value;
+    }
+);
+
+
+bounceInput.addEventListener(
+    "input",
+    () => {
+
+        document.getElementById(
+            "bounceValue"
+        ).textContent =
+            bounceInput.value;
+    }
+);
+
+
+maxBallsInput.addEventListener(
+    "input",
+    () => {
+
+        document.getElementById(
+            "maxBallsValue"
+        ).textContent =
+            maxBallsInput.value;
+    }
+);
+
+
+arenaSizeInput.addEventListener(
+    "input",
+    () => {
+
+        document.getElementById(
+            "arenaSizeValue"
+        ).textContent =
+            arenaSizeInput.value +
+            "%";
+
+        updateArena();
+    }
+);
+
+
+shapeInput.addEventListener(
+    "change",
+    () => {
+
+        updateArena();
+    }
+);
+
+
+duplicateInput.addEventListener(
+    "change",
+    () => {
+
+        if (
+            duplicateInput.checked
+        ) {
+
+            dupStatus.textContent =
+                "DUPLICATION: ON";
+
+        } else {
+
+            dupStatus.textContent =
+                "DUPLICATION: OFF";
+        }
+    }
+);
+
+
+document.getElementById(
+    "addBall"
+).addEventListener(
+    "click",
+    addBall
+);
+
+
+document.getElementById(
+    "reset"
+).addEventListener(
+    "click",
+    resetBalls
+);
+
+
+// ================================
+// GAME LOOP
+// ================================
+
+function gameLoop() {
+
+    update();
+
+    draw();
+
+    requestAnimationFrame(
+        gameLoop
+    );
+}
+
+
+// ================================
+// START
+// ================================
+
+resizeCanvas();
+
+updateCount();
+
+gameLoop();
+
+</script>
+
+</body>
+</html>
+```
+
+### The important change
+
+It now uses **`canDuplicate` on each individual ball**.
+
+So the behavior is:
+
+**1 ball**
+→ ball #1 hits wall
+→ **2 balls**
+
+**2 balls**
+→ only ball #2 hits wall
+→ **3 balls**
+
+**3 balls**
+→ only ball #1 hits wall
+→ **4 balls**
+
+It **doesn't duplicate every ball just because one ball hit the edge**. Each ball has to physically hit an edge itself.
